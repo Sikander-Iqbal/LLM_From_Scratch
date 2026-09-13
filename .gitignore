@@ -6,6 +6,7 @@ data/**/cache/
 
 # tokenizer artifacts
 tokenizer/*.json
+tokenizer/*.txt
 
 # checkpoints
 checkpoints/
