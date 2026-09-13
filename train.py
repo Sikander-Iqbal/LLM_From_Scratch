@@ -69,10 +69,19 @@ def parse_args():
     return p.parse_args()
 
 
+_memmap_cache = {}
+
+
 def get_batch(split, data_dir, block_size, batch_size, device):
-    # re-open the memmap every batch (avoids a slow memory leak from a long-lived mmap, see nanoGPT issue)
+    # cache the memmap handle per file instead of reopening it every call — on some
+    # filesystems (observed on Kaggle) repeated np.memmap() opens are severely slow,
+    # turning a ~100ms forward pass into a multi-second one. A long-lived memmap has
+    # a known (rare, very-long-run) memory growth issue on some systems; not worth
+    # the tradeoff here given how much it slows down every batch.
     path = os.path.join(data_dir, f'{split}.bin')
-    data = np.memmap(path, dtype=np.uint16, mode='r')
+    if path not in _memmap_cache:
+        _memmap_cache[path] = np.memmap(path, dtype=np.uint16, mode='r')
+    data = _memmap_cache[path]
     ix = torch.randint(len(data) - block_size, (batch_size,))
     x = torch.stack([torch.from_numpy(data[i:i + block_size].astype(np.int64)) for i in ix])
     y = torch.stack([torch.from_numpy(data[i + 1:i + 1 + block_size].astype(np.int64)) for i in ix])
