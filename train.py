@@ -23,6 +23,7 @@ from contextlib import nullcontext
 
 import numpy as np
 import torch
+from tqdm.auto import tqdm
 
 from model import GPT, GPTConfig
 
@@ -99,7 +100,7 @@ def estimate_loss(model, data_dir, block_size, batch_size, device, eval_iters, c
     model.eval()
     for split in ('train', 'val'):
         losses = torch.zeros(eval_iters)
-        for k in range(eval_iters):
+        for k in tqdm(range(eval_iters), desc=f'eval {split}', unit='batch', leave=False):
             x, y = get_batch(split, data_dir, block_size, batch_size, device)
             with ctx:
                 _, loss = model(x, y)
@@ -166,6 +167,7 @@ def main():
     x, y = get_batch('train', args.data_dir, args.block_size, args.batch_size, args.device)
     t0 = time.time()
 
+    pbar = tqdm(total=args.max_iters, initial=iter_num, desc='train', unit='it')
     while iter_num <= args.max_iters:
         lr = get_lr(iter_num, args.warmup_iters, args.lr_decay_iters, args.learning_rate, args.min_lr)
         for group in optimizer.param_groups:
@@ -175,7 +177,7 @@ def main():
             losses = estimate_loss(
                 model, args.data_dir, args.block_size, args.batch_size, args.device, args.eval_iters, ctx
             )
-            print(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+            tqdm.write(f"step {iter_num}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
             if losses['val'] < best_val_loss:
                 best_val_loss = losses['val']
                 torch.save({
@@ -185,9 +187,9 @@ def main():
                     'iter_num': iter_num,
                     'best_val_loss': best_val_loss,
                 }, ckpt_path)
-                print(f"  saved checkpoint to {ckpt_path}")
+                tqdm.write(f"  saved checkpoint to {ckpt_path}")
 
-        for micro_step in range(args.gradient_accumulation_steps):
+        for _ in tqdm(range(args.gradient_accumulation_steps), desc='microstep', unit='step', leave=False):
             with ctx:
                 _, loss = model(x, y)
                 loss = loss / args.gradient_accumulation_steps
@@ -202,13 +204,18 @@ def main():
         scaler.update()
         optimizer.zero_grad(set_to_none=True)
 
+        full_loss = loss.item() * args.gradient_accumulation_steps
+        pbar.set_postfix(loss=f"{full_loss:.4f}", lr=f"{lr:.2e}")
+        pbar.update(1)
+
         if iter_num % args.log_interval == 0:
             dt = time.time() - t0
             t0 = time.time()
-            print(f"iter {iter_num}: loss {loss.item() * args.gradient_accumulation_steps:.4f}, "
-                  f"{dt * 1000 / args.log_interval:.1f}ms/iter, lr {lr:.2e}")
+            tqdm.write(f"iter {iter_num}: loss {full_loss:.4f}, "
+                       f"{dt * 1000 / args.log_interval:.1f}ms/iter, lr {lr:.2e}")
 
         iter_num += 1
+    pbar.close()
 
 
 if __name__ == '__main__':
