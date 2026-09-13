@@ -65,14 +65,23 @@ instead of `\` for continuation. PowerShell uses a backtick `` ` ``.
 
 4. Train. On 8GB VRAM, GPT-2-small (125M params) needs a small micro-batch
    with gradient accumulation to reach an effective batch size (one-line
-   cmd.exe version):
+   cmd.exe version). `--max_iters 600000` is what GPT-2 trains for on a GPU
+   cluster — unrealistic on a laptop (measure your own ms/iter from the log
+   and budget accordingly; a few thousand iterations is a reasonable target):
 
    ```bash
-   python train.py --data_dir data/openwebtext --out_dir checkpoints/gpt2_small --n_layer 12 --n_head 12 --n_embd 768 --block_size 1024 --batch_size 8 --gradient_accumulation_steps 40 --max_iters 600000 --dtype bfloat16
+   python train.py --data_dir data/openwebtext --out_dir checkpoints/gpt2_small --n_layer 12 --n_head 12 --n_embd 768 --block_size 1024 --batch_size 8 --gradient_accumulation_steps 40 --max_iters 3000 --eval_interval 250 --dtype bfloat16
    ```
 
    Drop `--block_size` / `--batch_size` or add `--compile` if you hit an
    out-of-memory error. Watch `nvidia-smi` on the first few iterations.
+
+   **Alternative: train on a free cloud GPU instead of the laptop.** See
+   [notebooks/train_gpt2_small.ipynb](notebooks/train_gpt2_small.ipynb) —
+   runs on Kaggle (30 free GPU-hrs/week, P100/T4, 16GB VRAM) or Colab (free
+   T4), both faster and less VRAM-constrained than an 8GB laptop GPU. Free
+   sessions are time-limited, so the notebook trains in bounded chunks and
+   resumes across sessions via `--init_from resume`.
 
 5. Sample from it:
 
