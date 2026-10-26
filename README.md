@@ -9,18 +9,15 @@ See [model.py](model.py) for the full implementation.
 
 ## Setup
 
-This project shares its Python environment with `MSc_Agentic_Cyber_Defence`.
-From this directory:
+Create a virtual environment and install the dependencies:
 
 ```bash
-C:\Users\ifiah\PythonProject\MSc_Agentic_Cyber_Defence\.venv\Scripts\pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-Then run everything below with that same interpreter, e.g.:
-
-```bash
-C:\Users\ifiah\PythonProject\MSc_Agentic_Cyber_Defence\.venv\Scripts\python train.py ...
-```
+Then run everything below with that environment active, e.g. `python train.py ...`
 
 ## Phase 1a — smoke test (character-level, tiny-shakespeare)
 
@@ -62,6 +59,8 @@ instead of `\` for continuation. PowerShell uses a backtick `` ` ``.
    ```bash
    python data/openwebtext/prepare.py --dataset NeelNanda/pile-10k --num_proc 4
    ```
+
+   Note: the output folder is called `data/openwebtext/`, but the commands here use the small `NeelNanda/pile-10k` sample. Pass a different `--dataset` to train on a larger corpus.
 
 4. Train. On 8GB VRAM, GPT-2-small (125M params) needs a small micro-batch
    with gradient accumulation to reach an effective batch size (one-line
